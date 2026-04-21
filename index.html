@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InfiniteFonts</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #ffffff;
+      --text-color: #000000;
+      --ui-bg: rgba(255,255,255,0.92);
+      --ui-border: rgba(0,0,0,0.12);
+      --ui-text: #222;
+      --ui-shadow: rgba(0,0,0,0.08);
+    }
+
+    body.dark {
+      --bg: #000000;
+      --ui-bg: rgba(0,0,0,0.88);
+      --ui-border: rgba(255,255,255,0.15);
+      --ui-text: #ddd;
+      --ui-shadow: rgba(0,0,0,0.4);
+    }
+
+    html, body {
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      background: var(--bg);
+      font-family: system-ui, -apple-system, sans-serif;
+      transition: background 0.3s ease;
+    }
+
+    /* === CANVAS === */
+    #canvas {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+    }
+    #canvas.grabbing { cursor: grabbing; }
+
+    #tile-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      will-change: transform;
+    }
+
+    .tile {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+      transform-origin: center center;
+    }
+
+    .tile-inner {
+      text-align: center;
+      width: 100%;
+      padding: 2px 4px;
+      line-height: 1.15;
+      word-break: normal;
+      overflow-wrap: normal;
+    }
+
+    .tile .font-label {
+      display: block;
+      font-family: system-ui, -apple-system, sans-serif !important;
+      font-size: 10px;
+      opacity: 0;
+      margin-top: 4px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    .tile:hover .font-label {
+      opacity: 0.55;
+    }
+
+    /* === TOOLBAR === */
+    #toolbar {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: var(--ui-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--ui-border);
+      border-radius: 14px;
+      box-shadow: 0 4px 24px var(--ui-shadow);
+      color: var(--ui-text);
+      max-width: calc(100vw - 32px);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #toolbar input[type="text"] {
+      background: transparent;
+      border: 1px solid var(--ui-border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 14px;
+      color: var(--ui-text);
+      width: 220px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #toolbar input[type="text"]:focus {
+      border-color: rgba(100,100,255,0.5);
+    }
+    #toolbar input[type="text"]::placeholder {
+      color: var(--ui-text);
+      opacity: 0.4;
+    }
+
+    .color-wrapper {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid var(--ui-border);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .color-wrapper input[type="color"] {
+      position: absolute;
+      top: -6px; left: -6px;
+      width: 44px; height: 44px;
+      border: none;
+      cursor: pointer;
+      background: none;
+    }
+
+    .toolbar-label {
+      font-size: 12px;
+      opacity: 0.5;
+      white-space: nowrap;
+    }
+
+    .size-slider {
+      width: 80px;
+      accent-color: #666;
+    }
+
+    .toolbar-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--ui-border);
+      flex-shrink: 0;
+    }
+
+    #font-count {
+      font-size: 11px;
+      opacity: 0.4;
+      white-space: nowrap;
+    }
+
+    /* === MINIMAP === */
+    #minimap {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 120px;
+      height: 80px;
+      background: var(--ui-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--ui-border);
+      border-radius: 8px;
+      z-index: 100;
+      overflow: hidden;
+      box-shadow: 0 2px 12px var(--ui-shadow);
+    }
+    #minimap-viewport {
+      position: absolute;
+      border: 1.5px solid rgba(100,100,255,0.6);
+      background: rgba(100,100,255,0.08);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    #minimap-origin {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: rgba(255,80,80,0.6);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* === HINT === */
+    #hint {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: var(--ui-text);
+      opacity: 0.35;
+      z-index: 100;
+      pointer-events: none;
+      transition: opacity 0.5s;
+      white-space: nowrap;
+    }
+    #hint.hidden { opacity: 0; }
+
+    /* === RESET BUTTON === */
+    #reset-btn {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      z-index: 100;
+      background: var(--ui-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--ui-border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--ui-text);
+      cursor: pointer;
+      box-shadow: 0 2px 12px var(--ui-shadow);
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    #reset-btn:hover { opacity: 1; }
+
+    /* === LOADING === */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s;
+    }
+    #loading-overlay.fade-out { opacity: 0; pointer-events: none; }
+    .loader {
+      text-align: center;
+      color: var(--ui-text);
+    }
+    .loader-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--ui-border);
+      border-top-color: #666;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { font-size: 14px; opacity: 0.5; }
+  </style>
+</head>
+<body class="dark">
+  <div id="loading-overlay">
+    <div class="loader">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Loading fonts...</div>
+    </div>
+  </div>
+
+  <div id="toolbar">
+    <input type="text" id="text-input" placeholder="Type your text..." value="Hello World" spellcheck="false" autocomplete="off">
+    <div class="toolbar-divider"></div>
+    <span class="toolbar-label">Color</span>
+    <div class="color-wrapper" id="color-swatch">
+      <input type="color" id="color-input" value="#ffffff">
+    </div>
+    <div class="toolbar-divider"></div>
+    <span class="toolbar-label">Scale</span>
+    <input type="range" class="size-slider" id="size-input" min="16" max="96" value="64">
+    <div class="toolbar-divider"></div>
+    <span id="font-count"></span>
+  </div>
+
+  <div id="canvas">
+    <div id="tile-container"></div>
+  </div>
+
+  <div id="minimap">
+    <div id="minimap-viewport"></div>
+    <div id="minimap-origin"></div>
+  </div>
+
+  <button id="reset-btn" title="Return to origin">Reset View</button>
+
+  <div id="hint">Drag or scroll to explore — infinite fonts in every direction</div>
+
+  <script>
+    // ============================================================
+    // FONT DATABASE — curated list of 400+ Google Fonts
+    // ============================================================
+    const GOOGLE_FONTS = [
+      "Roboto","Open Sans","Lato","Montserrat","Oswald","Raleway","Poppins","Noto Sans",
+      "Ubuntu","Merriweather","Playfair Display","PT Sans","Nunito","Roboto Condensed",
+      "Source Sans 3","Roboto Slab","Inter","Mukta","Rubik","Work Sans","Fira Sans",
+      "Quicksand","Barlow","Mulish","Inconsolata","Titillium Web","Karla","Heebo",
+      "Libre Baskerville","Manrope","Josefin Sans","Arimo","Cabin","DM Sans","Lora",
+      "Bitter","Dosis","Oxygen","Nunito Sans","PT Serif","Abel","Exo 2","Hind",
+      "Archivo","Overpass","Asap","IBM Plex Sans","Rajdhani","Comfortaa","Maven Pro",
+      "Signika","Catamaran","Varela Round","Questrial","Kanit","Prompt","Sawarabi Gothic",
+      "Source Code Pro","Yanone Kaffeesatz","Fjalla One","Crimson Text","Anton","Lobster",
+      "Pacifico","Abril Fatface","Righteous","Shadows Into Light","Dancing Script",
+      "Permanent Marker","Satisfy","Courgette","Great Vibes","Caveat","Kaushan Script",
+      "Sacramento","Yellowtail","Cookie","Lobster Two","Tangerine","Parisienne",
+      "Gloria Hallelujah","Indie Flower","Patrick Hand","Architects Daughter",
+      "Handlee","Neucha","Covered By Your Grace","Just Another Hand","Rock Salt",
+      "Reenie Beanie","Schoolbell","Coming Soon","Walter Turncoat","Sriracha",
+      "Amatic SC","Fredericka the Great","Special Elite","Bangers","Bungee",
+      "Bungee Shade","Fascinate Inline","Monoton","Audiowide","Orbitron",
+      "Rajdhani","Exo","Share Tech Mono","Press Start 2P","VT323","Silkscreen",
+      "Pixelify Sans","Tiny5","DotGothic16",
+      "Bebas Neue","Archivo Black","Teko","Barlow Condensed","Saira Condensed",
+      "Pathway Gothic One","Oswald","Francois One","Acme","Righteous",
+      "Fredoka","Baloo 2","Bubblegum Sans","Cherry Cream Soda","Chewy",
+      "Luckiest Guy","Boogaloo","Titan One","Lilita One","Shrikhand",
+      "Passion One","Fugaz One","Concert One","Bowlby One SC",
+      "Cinzel","Cinzel Decorative","Cormorant Garamond","EB Garamond","Spectral",
+      "Libre Caslon Text","Cardo","Old Standard TT","Lusitana","Mate",
+      "Noto Serif","Noto Serif Display","Alegreya","Alegreya SC","Vollkorn",
+      "Gentium Book Plus","Cormorant","Cormorant Infant","Cormorant SC",
+      "IBM Plex Serif","Zilla Slab","Rokkitt","Arvo","Crete Round","Slabo 27px",
+      "Noticia Text","Domine","Martel","Tinos","Gelasio",
+      "Space Grotesk","Space Mono","Outfit","Sora","Lexend","Lexend Deca",
+      "Plus Jakarta Sans","Albert Sans","Figtree","Instrument Sans",
+      "Red Hat Display","Red Hat Text","Urbanist","Jost","Commissioner",
+      "Encode Sans","Encode Sans Condensed","Chivo","Saira","Barlow Semi Condensed",
+      "Yantramanav","Noto Sans Display","Noto Sans Mono",
+      "Cormorant Upright","Yeseva One","Philosopher","Neuton","Taviraj",
+      "Brawler","Eczar","Amiri","Amiri Quran","Markazi Text",
+      "Scheherazade New","Reem Kufi","Changa","El Messiri","Harmattan",
+      "Noto Naskh Arabic","Noto Sans Arabic","Noto Kufi Arabic",
+      "Recursive","JetBrains Mono","Fira Code","Source Code Pro","IBM Plex Mono",
+      "DM Mono","Cousine","Anonymous Pro","Courier Prime","Cutive Mono",
+      "Major Mono Display","Syne Mono","Xanh Mono","B612 Mono",
+      "Abril Fatface","Alfaslab One","Bree Serif","Patua One","Ultra",
+      "Stint Ultra Expanded","Bevan","Rozha One","Calistoga","Fraunces",
+      "Syne","Gloock","Young Serif","Bricolage Grotesque","Gabarito",
+      "Kablammo","Nabla","Rubik Vinyl","Rubik Glitch","Rubik Burned",
+      "Rubik Wet Paint","Rubik Moonrocks","Rubik Storm","Rubik Pixels",
+      "Rubik Iso","Rubik Distressed","Rubik Maze","Rubik Maps",
+      "Climate Crisis","Foldit","Tourney","Zen Dots","Zen Tokyo Zoo",
+      "Bungee Inline","Bungee Outline","Bungee Spice",
+      "Londrina Solid","Londrina Outline","Londrina Shadow","Londrina Sketch",
+      "Protest Riot","Protest Strike","Protest Revolution","Protest Guerrilla",
+      "Pixelify Sans","Silkscreen","Press Start 2P","VT323",
+      "Edu NSW ACT Foundation","Edu QLD Beginner","Edu SA Beginner","Edu TAS Beginner",
+      "Edu VIC WA NT Beginner","Kalam","Kalam","Chilanka","Merienda",
+      "Delius","Delius Swash Caps","Delius Unicase","Sue Ellen Francisco",
+      "Arapey","Bellefair","Forum","Oranienbaum","Prata","Poiret One",
+      "Tenor Sans","Jura","Advent Pro","Michroma","Oxanium","Electrolize",
+      "Chakra Petch","Coda","Share","Share Tech","Quantico","Saira Stencil One",
+      "Black Ops One","Gugi","Iceland","Aldrich","Economica",
+      "Secular One","Assistant","Alef","Suez One","Miriam Libre",
+      "Anek Latin","Tilt Neon","Tilt Prism","Tilt Warp","Nanum Gothic",
+      "Nanum Myeongjo","Nanum Gothic Coding","Nanum Pen Script","Nanum Brush Script",
+      "Gothic A1","Do Hyeon","Jua","Gamja Flower","Gaegu",
+      "Song Myung","Cute Font","Sunflower","Stylish","Poor Story",
+      "East Sea Dokdo","Yeon Sung","Gugi","Hi Melody","Dokdo",
+      "Gasoek One","Grandiflora One","Bagel Fat One"
+    ];
+
+    // Deduplicate
+    const FONTS = [...new Set(GOOGLE_FONTS)];
+
+    // ============================================================
+    // CONFIGURATION
+    // ============================================================
+    const TILE_COLS_BASE = 200;  // base tile width
+    const TILE_ROWS_BASE = 80;   // base tile height
+    const BUFFER = 2;            // extra tiles rendered outside viewport
+    const FONT_BATCH_SIZE = 40;  // fonts loaded per batch
+    const MINIMAP_SCALE = 0.006;
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let offsetX = 0, offsetY = 0;
+    let tileW = TILE_COLS_BASE, tileH = TILE_ROWS_BASE;
+    let textValue = "Hello World";
+    let textColor = "#ffffff";
+    let fontSize = 64;
+    let isDark = true;
+    let fontsLoaded = new Set();
+    let fontsLoading = new Set();
+    let activeTiles = new Map();   // key "col,row" -> DOM element
+    let rafId = null;
+    let isDragging = false;
+    let dragStartX, dragStartY, dragOffsetX, dragOffsetY;
+    let velocityX = 0, velocityY = 0;
+    let lastMoveX = 0, lastMoveY = 0;
+    let lastMoveTime = 0;
+    let momentumRaf = null;
+
+    // ============================================================
+    // DOM
+    // ============================================================
+    const canvas = document.getElementById('canvas');
+    const tileContainer = document.getElementById('tile-container');
+    const textInput = document.getElementById('text-input');
+    const colorInput = document.getElementById('color-input');
+    const colorSwatch = document.getElementById('color-swatch');
+    const sizeInput = document.getElementById('size-input');
+    const fontCountEl = document.getElementById('font-count');
+    const minimapViewport = document.getElementById('minimap-viewport');
+    const minimapOrigin = document.getElementById('minimap-origin');
+    const hint = document.getElementById('hint');
+    const resetBtn = document.getElementById('reset-btn');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    // ============================================================
+    // FONT LOADING
+    // ============================================================
+    function buildGoogleFontsURL(fontNames) {
+      const families = fontNames.map(f => 'family=' + encodeURIComponent(f)).join('&');
+      return `https://fonts.googleapis.com/css2?${families}&display=swap`;
+    }
+
+    async function loadFontBatch(fontNames) {
+      const toLoad = fontNames.filter(f => !fontsLoaded.has(f) && !fontsLoading.has(f));
+      if (toLoad.length === 0) return;
+      toLoad.forEach(f => fontsLoading.add(f));
+
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = buildGoogleFontsURL(toLoad);
+
+      return new Promise((resolve) => {
+        link.onload = () => {
+          toLoad.forEach(f => { fontsLoaded.add(f); fontsLoading.delete(f); });
+          updateFontCount();
+          resolve();
+        };
+        link.onerror = () => {
+          toLoad.forEach(f => fontsLoading.delete(f));
+          resolve();
+        };
+        document.head.appendChild(link);
+      });
+    }
+
+    function updateFontCount() {
+      fontCountEl.textContent = `${fontsLoaded.size}/${FONTS.length} fonts`;
+    }
+
+    // Load fonts progressively
+    async function loadAllFonts() {
+      const batches = [];
+      for (let i = 0; i < FONTS.length; i += FONT_BATCH_SIZE) {
+        batches.push(FONTS.slice(i, i + FONT_BATCH_SIZE));
+      }
+      // Load first 2 batches immediately
+      await Promise.all([loadFontBatch(batches[0]), batches[1] && loadFontBatch(batches[1])]);
+
+      // Fade out loading
+      loadingOverlay.classList.add('fade-out');
+      setTimeout(() => loadingOverlay.remove(), 600);
+
+      // Load rest in background
+      for (let i = 2; i < batches.length; i++) {
+        await loadFontBatch(batches[i]);
+      }
+    }
+
+    // ============================================================
+    // DETERMINISTIC FONT MAPPING
+    // Hash a grid coordinate to a font index — ensures each cell
+    // always shows the same font regardless of scroll position.
+    // Uses a simple but effective hash to avoid visible patterns.
+    // ============================================================
+    function hashCoord(col, row) {
+      // Simple integer hash combining col and row
+      let h = ((col * 2654435761) ^ (row * 2246822519)) >>> 0;
+      h = ((h >> 16) ^ h) * 0x45d9f3b >>> 0;
+      h = ((h >> 16) ^ h) >>> 0;
+      return h;
+    }
+
+    function getFontForCell(col, row) {
+      const idx = hashCoord(col, row) % FONTS.length;
+      return FONTS[idx];
+    }
+
+    // ============================================================
+    // COLOR / CONTRAST
+    // ============================================================
+    function hexToRgb(hex) {
+      const n = parseInt(hex.slice(1), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    function relativeLuminance([r, g, b]) {
+      const [rs, gs, bs] = [r, g, b].map(c => {
+        c /= 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+    }
+
+    function needsDarkBg(hexColor) {
+      const lum = relativeLuminance(hexToRgb(hexColor));
+      // If text is light (luminance > 0.4), use dark background
+      return lum > 0.4;
+    }
+
+    function updateBackground() {
+      const dark = needsDarkBg(textColor);
+      if (dark !== isDark) {
+        isDark = dark;
+        document.body.classList.toggle('dark', dark);
+      }
+    }
+
+    // ============================================================
+    // DYNAMIC FONT SIZE — scales inversely with string length
+    // Short strings get big text, long strings shrink to fit.
+    // The slider acts as the *base* size for a ~10-char string.
+    // ============================================================
+    function computeDynamicFontSize() {
+      const len = textValue.length || 1;
+      // Reference length of 10 chars maps to the slider value.
+      // Scale inversely with sqrt so it's not too aggressive.
+      const scale = Math.sqrt(10 / Math.max(len, 1));
+      // Clamp between 14px and 160px
+      return Math.round(Math.min(160, Math.max(14, fontSize * scale)));
+    }
+
+    // ============================================================
+    // TILE RENDERING
+    // ============================================================
+    function updateTileSize() {
+      const dynSize = computeDynamicFontSize();
+      // Use generous char width estimate (0.65em covers wide fonts)
+      const charW = dynSize * 0.65;
+
+      // Tile must be at least as wide as the longest word so
+      // no word ever breaks mid-character
+      const words = textValue.split(/\s+/);
+      const longestWordLen = Math.max(...words.map(w => w.length));
+      const minWordW = longestWordLen * charW + 16;
+
+      // Full single-line width
+      const fullLineW = charW * textValue.length + 16;
+
+      // Use single-line width if it fits in a reasonable cap,
+      // otherwise use a cap but ensure longest word fits
+      const maxCap = 650;
+      tileW = Math.max(TILE_COLS_BASE, Math.round(Math.min(fullLineW, maxCap)));
+      tileW = Math.max(tileW, Math.round(minWordW));
+
+      // Estimate line count for height: wrap only at word boundaries
+      const usableW = tileW - 8;
+      let lines = 1;
+      let lineLen = 0;
+      for (const word of words) {
+        const wordW = word.length * charW;
+        if (lineLen > 0 && lineLen + charW + wordW > usableW) {
+          lines++;
+          lineLen = wordW;
+        } else {
+          lineLen += (lineLen > 0 ? charW : 0) + wordW; // charW for space
+        }
+      }
+
+      const lineH = dynSize * 1.15;
+      tileH = Math.max(60, Math.round(lines * lineH + 8));
+    }
+
+    // ============================================================
+    // GAUSSIAN DISTANCE EFFECT — HEAVY
+    // Tiles near the viewport center are fully opaque & full-scale.
+    // Tiles toward edges dramatically fade and shrink.
+    // Tight sigma = sharp falloff = very pronounced spotlight.
+    // ============================================================
+    function gaussian(x, sigma) {
+      return Math.exp(-(x * x) / (2 * sigma * sigma));
+    }
+
+    function applyGaussianEffect(tile, tileCenterX, tileCenterY, viewCenterX, viewCenterY, vw, vh) {
+      // Normalized distance from center (0 = center, 1 = edge)
+      const dx = (tileCenterX - viewCenterX) / (vw * 0.5);
+      const dy = (tileCenterY - viewCenterY) / (vh * 0.5);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Tight sigma for dramatic falloff
+      const sigma = 0.55;
+      const g = gaussian(dist, sigma);
+
+      // Map gaussian [0..1] to opacity [0.04..1] and scale [0.45..1]
+      // Edge tiles nearly invisible, center tiles fully prominent
+      const opacity = 0.04 + g * 0.96;
+      const scale = 0.45 + g * 0.55;
+
+      tile.style.opacity = opacity;
+      tile.style.transform = `scale(${scale})`;
+    }
+
+    function renderTiles() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const dynSize = computeDynamicFontSize();
+
+      // Viewport center in world coords
+      const viewCenterX = offsetX + vw / 2;
+      const viewCenterY = offsetY + vh / 2;
+
+      // Which columns/rows are visible
+      const startCol = Math.floor(offsetX / tileW) - BUFFER;
+      const endCol = Math.floor((offsetX + vw) / tileW) + BUFFER;
+      const startRow = Math.floor(offsetY / tileH) - BUFFER;
+      const endRow = Math.floor((offsetY + vh) / tileH) + BUFFER;
+
+      const visibleKeys = new Set();
+      const fontsNeeded = [];
+
+      for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+          const key = `${col},${row}`;
+          visibleKeys.add(key);
+
+          const font = getFontForCell(col, row);
+          if (!fontsLoaded.has(font) && !fontsLoading.has(font)) {
+            fontsNeeded.push(font);
+          }
+
+          let tile = activeTiles.get(key);
+          const isNew = !tile;
+
+          if (isNew) {
+            tile = document.createElement('div');
+            tile.className = 'tile';
+            tile.style.left = (col * tileW) + 'px';
+            tile.style.top = (row * tileH) + 'px';
+            tile.style.width = tileW + 'px';
+            tile.style.height = tileH + 'px';
+
+            const inner = document.createElement('div');
+            inner.className = 'tile-inner';
+            inner.style.fontFamily = `"${font}", sans-serif`;
+            inner.style.fontSize = dynSize + 'px';
+            inner.style.color = textColor;
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'tile-text';
+            textSpan.textContent = textValue;
+
+            const label = document.createElement('span');
+            label.className = 'font-label';
+            label.textContent = font;
+            label.style.color = textColor;
+
+            inner.appendChild(textSpan);
+            inner.appendChild(label);
+            tile.appendChild(inner);
+            tileContainer.appendChild(tile);
+            activeTiles.set(key, tile);
+          }
+
+          // Apply Gaussian effect every frame for all visible tiles
+          const tileCX = col * tileW + tileW / 2;
+          const tileCY = row * tileH + tileH / 2;
+          applyGaussianEffect(tile, tileCX, tileCY, viewCenterX, viewCenterY, vw, vh);
+        }
+      }
+
+      // Remove tiles no longer visible
+      for (const [key, tile] of activeTiles) {
+        if (!visibleKeys.has(key)) {
+          tile.remove();
+          activeTiles.delete(key);
+        }
+      }
+
+      // Update container transform
+      tileContainer.style.transform = `translate(${-offsetX}px, ${-offsetY}px)`;
+
+      // Load any missing fonts
+      if (fontsNeeded.length > 0) {
+        loadFontBatch(fontsNeeded);
+      }
+
+      // Update minimap
+      updateMinimap(vw, vh);
+    }
+
+    function requestRender() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        renderTiles();
+      });
+    }
+
+    // Full re-render (when text/color/size changes)
+    function fullRerender() {
+      updateTileSize();
+      // Remove all tiles
+      for (const [, tile] of activeTiles) tile.remove();
+      activeTiles.clear();
+      requestRender();
+    }
+
+    // ============================================================
+    // MINIMAP
+    // ============================================================
+    function updateMinimap(vw, vh) {
+      const mapW = 120, mapH = 80;
+      // Scale: how many world-pixels per minimap-pixel
+      const scale = Math.min(mapW / (vw * 20), mapH / (vh * 20));
+
+      // Origin dot stays at center of minimap
+      minimapOrigin.style.left = (mapW / 2 - 2) + 'px';
+      minimapOrigin.style.top = (mapH / 2 - 2) + 'px';
+
+      // Viewport rectangle moves relative to origin
+      // offsetX/Y is the world-coord of the top-left of the screen
+      // Positive offset = scrolled right/down = viewport moves right/down on minimap
+      const vpW = Math.max(8, vw * scale);
+      const vpH = Math.max(6, vh * scale);
+      const vpX = mapW / 2 + offsetX * scale;
+      const vpY = mapH / 2 + offsetY * scale;
+
+      minimapViewport.style.width = vpW + 'px';
+      minimapViewport.style.height = vpH + 'px';
+      minimapViewport.style.left = vpX + 'px';
+      minimapViewport.style.top = vpY + 'px';
+    }
+
+    // ============================================================
+    // INPUT HANDLERS
+    // ============================================================
+
+    // Drag to pan
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('#toolbar')) return;
+      isDragging = true;
+      canvas.classList.add('grabbing');
+      canvas.setPointerCapture(e.pointerId);
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      dragOffsetX = offsetX;
+      dragOffsetY = offsetY;
+      lastMoveX = e.clientX;
+      lastMoveY = e.clientY;
+      lastMoveTime = performance.now();
+      velocityX = 0;
+      velocityY = 0;
+      if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = null; }
+
+      // Hide hint on first interaction
+      hint.classList.add('hidden');
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      offsetX = dragOffsetX - dx;
+      offsetY = dragOffsetY - dy;
+
+      const now = performance.now();
+      const dt = now - lastMoveTime;
+      if (dt > 0) {
+        velocityX = (e.clientX - lastMoveX) / dt;
+        velocityY = (e.clientY - lastMoveY) / dt;
+      }
+      lastMoveX = e.clientX;
+      lastMoveY = e.clientY;
+      lastMoveTime = now;
+
+      requestRender();
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      canvas.classList.remove('grabbing');
+
+      // Momentum scrolling
+      if (Math.abs(velocityX) > 0.1 || Math.abs(velocityY) > 0.1) {
+        startMomentum();
+      }
+    });
+
+    function startMomentum() {
+      const friction = 0.95;
+      function tick() {
+        velocityX *= friction;
+        velocityY *= friction;
+        if (Math.abs(velocityX) < 0.01 && Math.abs(velocityY) < 0.01) {
+          momentumRaf = null;
+          return;
+        }
+        offsetX -= velocityX * 16;
+        offsetY -= velocityY * 16;
+        requestRender();
+        momentumRaf = requestAnimationFrame(tick);
+      }
+      momentumRaf = requestAnimationFrame(tick);
+    }
+
+    // Scroll wheel to pan
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      offsetX += e.deltaX;
+      offsetY += e.deltaY;
+      requestRender();
+      hint.classList.add('hidden');
+    }, { passive: false });
+
+    // Touch support (two-finger drag is handled by pointer events)
+
+    // Keyboard pan
+    const KEY_PAN = 60;
+    const keysDown = new Set();
+    let keyPanRaf = null;
+
+    document.addEventListener('keydown', (e) => {
+      if (e.target === textInput) return;
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d'].includes(e.key)) {
+        e.preventDefault();
+        keysDown.add(e.key);
+        if (!keyPanRaf) startKeyPan();
+      }
+      // Home key to reset
+      if (e.key === 'Home') {
+        offsetX = 0; offsetY = 0;
+        requestRender();
+      }
+    });
+    document.addEventListener('keyup', (e) => {
+      keysDown.delete(e.key);
+    });
+
+    function startKeyPan() {
+      function tick() {
+        let dx = 0, dy = 0;
+        if (keysDown.has('ArrowLeft') || keysDown.has('a')) dx -= KEY_PAN;
+        if (keysDown.has('ArrowRight') || keysDown.has('d')) dx += KEY_PAN;
+        if (keysDown.has('ArrowUp') || keysDown.has('w')) dy -= KEY_PAN;
+        if (keysDown.has('ArrowDown') || keysDown.has('s')) dy += KEY_PAN;
+        if (dx === 0 && dy === 0) { keyPanRaf = null; return; }
+        offsetX += dx;
+        offsetY += dy;
+        requestRender();
+        keyPanRaf = requestAnimationFrame(tick);
+      }
+      keyPanRaf = requestAnimationFrame(tick);
+    }
+
+    // Text input
+    let textDebounce;
+    textInput.addEventListener('input', () => {
+      clearTimeout(textDebounce);
+      textDebounce = setTimeout(() => {
+        textValue = textInput.value || 'Hello World';
+        fullRerender();
+      }, 150);
+    });
+
+    // Color input
+    colorInput.addEventListener('input', () => {
+      textColor = colorInput.value;
+      colorSwatch.style.background = textColor;
+      updateBackground();
+      fullRerender();
+    });
+
+    // Size input
+    sizeInput.addEventListener('input', () => {
+      fontSize = parseInt(sizeInput.value);
+      fullRerender();
+    });
+
+    // Reset view
+    resetBtn.addEventListener('click', () => {
+      offsetX = 0; offsetY = 0;
+      if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = null; }
+      requestRender();
+    });
+
+    // Resize
+    window.addEventListener('resize', () => requestRender());
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    function init() {
+      updateTileSize();
+      updateBackground();
+      colorSwatch.style.background = textColor;
+      updateFontCount();
+
+      // Center the view so (0,0) is roughly in the middle
+      offsetX = -Math.floor(window.innerWidth / 2);
+      offsetY = -Math.floor(window.innerHeight / 2);
+
+      requestRender();
+      loadAllFonts();
+
+      // Auto-hide hint after 5s
+      setTimeout(() => hint.classList.add('hidden'), 5000);
+    }
+
+    init();
+  </script>
+</body>
+</html>
