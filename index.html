@@ -86,17 +86,48 @@
       opacity: 0.55;
     }
 
-    /* === TOOLBAR === */
-    #toolbar {
+    /* === PANEL === */
+    #panel-toggle {
       position: fixed;
       top: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 100;
+      right: 16px;
+      z-index: 101;
+      width: 36px;
+      height: 36px;
+      background: var(--ui-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--ui-border);
+      border-radius: 10px;
+      box-shadow: 0 4px 16px var(--ui-shadow);
+      color: var(--ui-text);
+      font-size: 15px;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
+      justify-content: center;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+      flex-direction: column;
+      gap: 3px;
+      padding: 8px 7px;
+    }
+    #panel-toggle:hover, #panel-toggle.open { opacity: 1; }
+    .burger-line {
+      display: block;
+      width: 100%;
+      height: 1.5px;
+      background: var(--ui-text);
+      border-radius: 1px;
+      transition: opacity 0.2s;
+    }
+
+    #panel {
+      position: fixed;
+      top: 60px;
+      right: 16px;
+      z-index: 100;
+      width: 256px;
       background: var(--ui-bg);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
@@ -104,34 +135,66 @@
       border-radius: 14px;
       box-shadow: 0 4px 24px var(--ui-shadow);
       color: var(--ui-text);
-      max-width: calc(100vw - 32px);
-      flex-wrap: wrap;
-      justify-content: center;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-6px) scale(0.98);
+      transform-origin: top right;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    #panel.open {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0) scale(1);
     }
 
-    #toolbar input[type="text"] {
+    .panel-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-label {
+      font-size: 11px;
+      opacity: 0.45;
+      white-space: nowrap;
+      width: 40px;
+      flex-shrink: 0;
+    }
+
+    .panel-row input[type="text"] {
+      flex: 1;
       background: transparent;
       border: 1px solid var(--ui-border);
       border-radius: 8px;
       padding: 6px 10px;
       font-size: 14px;
       color: var(--ui-text);
-      width: 220px;
       outline: none;
       transition: border-color 0.2s;
+      min-width: 0;
     }
-    #toolbar input[type="text"]:focus {
+    .panel-row input[type="text"]:focus {
       border-color: rgba(100,100,255,0.5);
     }
-    #toolbar input[type="text"]::placeholder {
+    .panel-row input[type="text"]::placeholder {
       color: var(--ui-text);
       opacity: 0.4;
     }
 
+    .panel-row input[type="range"] {
+      flex: 1;
+      accent-color: #666;
+      min-width: 0;
+    }
+
     .color-wrapper {
       position: relative;
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
       overflow: hidden;
       border: 2px solid var(--ui-border);
@@ -141,34 +204,48 @@
     .color-wrapper input[type="color"] {
       position: absolute;
       top: -6px; left: -6px;
-      width: 44px; height: 44px;
+      width: 40px; height: 40px;
       border: none;
       cursor: pointer;
       background: none;
     }
 
-    .toolbar-label {
-      font-size: 12px;
+    .style-btn {
+      background: transparent;
+      border: 1px solid var(--ui-border);
+      border-radius: 6px;
+      color: var(--ui-text);
+      font-size: 13px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       opacity: 0.5;
-      white-space: nowrap;
-    }
-
-    .size-slider {
-      width: 80px;
-      accent-color: #666;
-    }
-
-    .toolbar-divider {
-      width: 1px;
-      height: 24px;
-      background: var(--ui-border);
+      transition: opacity 0.15s, background 0.15s;
       flex-shrink: 0;
+    }
+    .style-btn:hover { opacity: 0.85; }
+    .style-btn.active {
+      opacity: 1;
+      background: rgba(100,100,255,0.15);
+      border-color: rgba(100,100,255,0.4);
+    }
+    #bold-btn { font-weight: bold; }
+    #italic-btn { font-style: italic; }
+
+    .panel-divider {
+      width: 100%;
+      height: 1px;
+      background: var(--ui-border);
     }
 
     #font-count {
       font-size: 11px;
-      opacity: 0.4;
+      opacity: 0.35;
       white-space: nowrap;
+      text-align: right;
     }
 
     /* === MINIMAP === */
@@ -276,17 +353,31 @@
     </div>
   </div>
 
-  <div id="toolbar">
-    <input type="text" id="text-input" placeholder="Type your text..." value="Hello World" spellcheck="false" autocomplete="off">
-    <div class="toolbar-divider"></div>
-    <span class="toolbar-label">Color</span>
-    <div class="color-wrapper" id="color-swatch">
-      <input type="color" id="color-input" value="#ffffff">
+  <button id="panel-toggle" title="Toggle controls">
+    <span class="burger-line"></span>
+    <span class="burger-line"></span>
+    <span class="burger-line"></span>
+  </button>
+
+  <div id="panel">
+    <div class="panel-row">
+      <input type="text" id="text-input" placeholder="Type your text..." value="Hello World" spellcheck="false" autocomplete="off">
     </div>
-    <div class="toolbar-divider"></div>
-    <span class="toolbar-label">Scale</span>
-    <input type="range" class="size-slider" id="size-input" min="16" max="96" value="64">
-    <div class="toolbar-divider"></div>
+    <div class="panel-divider"></div>
+    <div class="panel-row">
+      <span class="panel-label">Color</span>
+      <div class="color-wrapper" id="color-swatch">
+        <input type="color" id="color-input" value="#ffffff">
+      </div>
+      <span class="panel-label" style="width:auto;margin-left:4px;">Style</span>
+      <button class="style-btn" id="bold-btn" title="Bold">B</button>
+      <button class="style-btn" id="italic-btn" title="Italic">I</button>
+    </div>
+    <div class="panel-row">
+      <span class="panel-label">Scale</span>
+      <input type="range" id="size-input" min="16" max="96" value="64">
+    </div>
+    <div class="panel-divider"></div>
     <span id="font-count"></span>
   </div>
 
@@ -385,7 +476,7 @@
     // ============================================================
     const TILE_COLS_BASE = 200;  // base tile width
     const TILE_ROWS_BASE = 80;   // base tile height
-    const BUFFER = 2;            // extra tiles rendered outside viewport
+    const BUFFER = 1;            // extra tiles rendered outside viewport
     const FONT_BATCH_SIZE = 40;  // fonts loaded per batch
     const MINIMAP_SCALE = 0.006;
 
@@ -398,6 +489,8 @@
     let textColor = "#ffffff";
     let fontSize = 64;
     let isDark = true;
+    let isBold = false;
+    let isItalic = false;
     let fontsLoaded = new Set();
     let fontsLoading = new Set();
     let activeTiles = new Map();   // key "col,row" -> DOM element
@@ -408,6 +501,8 @@
     let lastMoveX = 0, lastMoveY = 0;
     let lastMoveTime = 0;
     let momentumRaf = null;
+    let tilePool = [];
+    let minimapFrame = 0;
 
     // ============================================================
     // DOM
@@ -418,6 +513,10 @@
     const colorInput = document.getElementById('color-input');
     const colorSwatch = document.getElementById('color-swatch');
     const sizeInput = document.getElementById('size-input');
+    const panelToggle = document.getElementById('panel-toggle');
+    const panelEl = document.getElementById('panel');
+    const boldBtn = document.getElementById('bold-btn');
+    const italicBtn = document.getElementById('italic-btn');
     const fontCountEl = document.getElementById('font-count');
     const minimapViewport = document.getElementById('minimap-viewport');
     const minimapOrigin = document.getElementById('minimap-origin');
@@ -584,51 +683,49 @@
     }
 
     // ============================================================
-    // GAUSSIAN DISTANCE EFFECT — HEAVY
-    // Tiles near the viewport center are fully opaque & full-scale.
-    // Tiles toward edges dramatically fade and shrink.
-    // Tight sigma = sharp falloff = very pronounced spotlight.
+    // GAUSSIAN DISTANCE EFFECT
+    // Precomputed: 2 * sigma^2 where sigma = 0.55
+    // Uses squared distance to avoid Math.sqrt entirely.
+    // Skips style writes when values haven't meaningfully changed.
     // ============================================================
-    function gaussian(x, sigma) {
-      return Math.exp(-(x * x) / (2 * sigma * sigma));
-    }
+    const TWO_SIGMA_SQ = 2 * 0.55 * 0.55; // 0.605
 
-    function applyGaussianEffect(tile, tileCenterX, tileCenterY, viewCenterX, viewCenterY, vw, vh) {
-      // Normalized distance from center (0 = center, 1 = edge)
-      const dx = (tileCenterX - viewCenterX) / (vw * 0.5);
-      const dy = (tileCenterY - viewCenterY) / (vh * 0.5);
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      // Tight sigma for dramatic falloff
-      const sigma = 0.55;
-      const g = gaussian(dist, sigma);
-
-      // Map gaussian [0..1] to opacity [0.04..1] and scale [0.45..1]
-      // Edge tiles nearly invisible, center tiles fully prominent
+    function applyGaussianEffect(tile, tileCenterX, tileCenterY, viewCenterX, viewCenterY, vwHalf, vhHalf) {
+      const dx = (tileCenterX - viewCenterX) / vwHalf;
+      const dy = (tileCenterY - viewCenterY) / vhHalf;
+      const g = Math.exp(-(dx * dx + dy * dy) / TWO_SIGMA_SQ);
       const opacity = 0.04 + g * 0.96;
       const scale = 0.45 + g * 0.55;
 
-      tile.style.opacity = opacity;
-      tile.style.transform = `scale(${scale})`;
+      if (Math.abs(tile._opacity - opacity) > 0.005 || Math.abs(tile._scale - scale) > 0.005) {
+        tile._opacity = opacity;
+        tile._scale = scale;
+        tile.style.opacity = opacity;
+        tile.style.transform = `scale(${scale})`;
+      }
     }
 
     function renderTiles() {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      const vwHalf = vw * 0.5;
+      const vhHalf = vh * 0.5;
       const dynSize = computeDynamicFontSize();
 
-      // Viewport center in world coords
-      const viewCenterX = offsetX + vw / 2;
-      const viewCenterY = offsetY + vh / 2;
+      const viewCenterX = offsetX + vwHalf;
+      const viewCenterY = offsetY + vhHalf;
 
-      // Which columns/rows are visible
-      const startCol = Math.floor(offsetX / tileW) - BUFFER;
-      const endCol = Math.floor((offsetX + vw) / tileW) + BUFFER;
-      const startRow = Math.floor(offsetY / tileH) - BUFFER;
-      const endRow = Math.floor((offsetY + vh) / tileH) + BUFFER;
+      // Shrink buffer when tiles are large — large tiles already fill the screen
+      // and off-screen extras are nearly invisible due to the Gaussian falloff
+      const buf = tileW > 350 ? 0 : BUFFER;
+      const startCol = Math.floor(offsetX / tileW) - buf;
+      const endCol = Math.floor((offsetX + vw) / tileW) + buf;
+      const startRow = Math.floor(offsetY / tileH) - buf;
+      const endRow = Math.floor((offsetY + vh) / tileH) + buf;
 
       const visibleKeys = new Set();
       const fontsNeeded = [];
+      const fragment = document.createDocumentFragment();
 
       for (let row = startRow; row <= endRow; row++) {
         for (let col = startCol; col <= endCol; col++) {
@@ -641,63 +738,74 @@
           }
 
           let tile = activeTiles.get(key);
-          const isNew = !tile;
 
-          if (isNew) {
-            tile = document.createElement('div');
+          if (!tile) {
+            // Reuse a pooled element or create a new one
+            tile = tilePool.pop() || document.createElement('div');
             tile.className = 'tile';
+            tile._opacity = -1;
+            tile._scale = -1;
             tile.style.left = (col * tileW) + 'px';
             tile.style.top = (row * tileH) + 'px';
             tile.style.width = tileW + 'px';
             tile.style.height = tileH + 'px';
 
-            const inner = document.createElement('div');
-            inner.className = 'tile-inner';
+            // Reuse inner structure if pooled, otherwise build it
+            let inner = tile.firstChild;
+            if (!inner) {
+              inner = document.createElement('div');
+              inner.className = 'tile-inner';
+              const textSpan = document.createElement('span');
+              textSpan.className = 'tile-text';
+              const label = document.createElement('span');
+              label.className = 'font-label';
+              inner.appendChild(textSpan);
+              inner.appendChild(label);
+              tile.appendChild(inner);
+            }
+
             inner.style.fontFamily = `"${font}", sans-serif`;
             inner.style.fontSize = dynSize + 'px';
             inner.style.color = textColor;
+            inner.style.fontWeight = isBold ? 'bold' : 'normal';
+            inner.style.fontStyle = isItalic ? 'italic' : 'normal';
+            inner.firstChild.textContent = textValue;
+            inner.lastChild.textContent = font;
+            inner.lastChild.style.color = textColor;
 
-            const textSpan = document.createElement('span');
-            textSpan.className = 'tile-text';
-            textSpan.textContent = textValue;
-
-            const label = document.createElement('span');
-            label.className = 'font-label';
-            label.textContent = font;
-            label.style.color = textColor;
-
-            inner.appendChild(textSpan);
-            inner.appendChild(label);
-            tile.appendChild(inner);
-            tileContainer.appendChild(tile);
+            fragment.appendChild(tile);
             activeTiles.set(key, tile);
           }
 
-          // Apply Gaussian effect every frame for all visible tiles
-          const tileCX = col * tileW + tileW / 2;
-          const tileCY = row * tileH + tileH / 2;
-          applyGaussianEffect(tile, tileCX, tileCY, viewCenterX, viewCenterY, vw, vh);
+          const tileCX = col * tileW + tileW * 0.5;
+          const tileCY = row * tileH + tileH * 0.5;
+          applyGaussianEffect(tile, tileCX, tileCY, viewCenterX, viewCenterY, vwHalf, vhHalf);
         }
       }
 
-      // Remove tiles no longer visible
+      // Batch-insert all new tiles in one DOM operation
+      if (fragment.childNodes.length > 0) {
+        tileContainer.appendChild(fragment);
+      }
+
+      // Recycle tiles that scrolled out of view
       for (const [key, tile] of activeTiles) {
         if (!visibleKeys.has(key)) {
           tile.remove();
+          tilePool.push(tile);
           activeTiles.delete(key);
         }
       }
 
-      // Update container transform
-      tileContainer.style.transform = `translate(${-offsetX}px, ${-offsetY}px)`;
+      tileContainer.style.transform = `translate(${-offsetX}px,${-offsetY}px)`;
 
-      // Load any missing fonts
       if (fontsNeeded.length > 0) {
         loadFontBatch(fontsNeeded);
       }
 
-      // Update minimap
-      updateMinimap(vw, vh);
+      // Minimap is cheap but no need to update every single frame
+      minimapFrame = (minimapFrame + 1) % 3;
+      if (minimapFrame === 0) updateMinimap(vw, vh);
     }
 
     function requestRender() {
@@ -710,9 +818,22 @@
 
     // Full re-render (when text/color/size changes)
     function fullRerender() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // Save fractional tile position of the viewport center before resize
+      const centerCol = (offsetX + vw * 0.5) / tileW;
+      const centerRow = (offsetY + vh * 0.5) / tileH;
+
       updateTileSize();
-      // Remove all tiles
-      for (const [, tile] of activeTiles) tile.remove();
+
+      // Reanchor offset so the same tile position stays centered after resize
+      offsetX = centerCol * tileW - vw * 0.5;
+      offsetY = centerRow * tileH - vh * 0.5;
+
+      for (const [, tile] of activeTiles) {
+        tile.remove();
+        tilePool.push(tile);
+      }
       activeTiles.clear();
       requestRender();
     }
@@ -749,7 +870,7 @@
 
     // Drag to pan
     canvas.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('#toolbar')) return;
+      if (e.target.closest('#panel') || e.target.closest('#panel-toggle')) return;
       isDragging = true;
       canvas.classList.add('grabbing');
       canvas.setPointerCapture(e.pointerId);
@@ -886,6 +1007,33 @@
     // Size input
     sizeInput.addEventListener('input', () => {
       fontSize = parseInt(sizeInput.value);
+      fullRerender();
+    });
+
+    // Panel toggle
+    panelToggle.addEventListener('click', () => {
+      const open = panelEl.classList.toggle('open');
+      panelToggle.classList.toggle('open', open);
+    });
+
+    // Close panel when clicking outside
+    document.addEventListener('pointerdown', (e) => {
+      if (!panelEl.classList.contains('open')) return;
+      if (!panelEl.contains(e.target) && e.target !== panelToggle && !panelToggle.contains(e.target)) {
+        panelEl.classList.remove('open');
+        panelToggle.classList.remove('open');
+      }
+    }, { capture: true });
+
+    // Style toggles
+    boldBtn.addEventListener('click', () => {
+      isBold = !isBold;
+      boldBtn.classList.toggle('active', isBold);
+      fullRerender();
+    });
+    italicBtn.addEventListener('click', () => {
+      isItalic = !isItalic;
+      italicBtn.classList.toggle('active', isItalic);
       fullRerender();
     });
 
