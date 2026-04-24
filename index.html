@@ -235,6 +235,23 @@
     #bold-btn { font-weight: bold; }
     #italic-btn { font-style: italic; }
 
+    .panel-row select {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--ui-border);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 12px;
+      color: var(--ui-text);
+      outline: none;
+      cursor: pointer;
+      min-width: 0;
+    }
+    .panel-row select option {
+      background: #222;
+      color: #ddd;
+    }
+
     .panel-divider {
       width: 100%;
       height: 1px;
@@ -377,6 +394,17 @@
       <span class="panel-label">Scale</span>
       <input type="range" id="size-input" min="16" max="96" value="64">
     </div>
+    <div class="panel-row">
+      <span class="panel-label">Filter</span>
+      <select id="filter-input">
+        <option value="all">All Fonts</option>
+        <option value="sans-serif">Sans-Serif</option>
+        <option value="serif">Serif</option>
+        <option value="monospace">Monospace</option>
+        <option value="display">Display</option>
+        <option value="handwriting">Handwriting</option>
+      </select>
+    </div>
     <div class="panel-divider"></div>
     <span id="font-count"></span>
   </div>
@@ -471,6 +499,99 @@
     // Deduplicate
     const FONTS = [...new Set(GOOGLE_FONTS)];
 
+    // Font category mapping (based on Google Fonts classification)
+    const FONT_CATEGORIES = {
+      'sans-serif': new Set([
+        "Roboto","Open Sans","Lato","Montserrat","Oswald","Raleway","Poppins","Noto Sans",
+        "Ubuntu","PT Sans","Nunito","Roboto Condensed","Source Sans 3","Inter","Mukta",
+        "Rubik","Work Sans","Fira Sans","Quicksand","Barlow","Mulish","Titillium Web",
+        "Karla","Heebo","Manrope","Josefin Sans","Arimo","Cabin","DM Sans","Dosis",
+        "Oxygen","Nunito Sans","Abel","Exo 2","Hind","Archivo","Overpass","Asap",
+        "IBM Plex Sans","Rajdhani","Comfortaa","Maven Pro","Signika","Catamaran",
+        "Varela Round","Questrial","Kanit","Prompt","Sawarabi Gothic","Fjalla One",
+        "Anton","Bebas Neue","Archivo Black","Teko","Barlow Condensed","Saira Condensed",
+        "Pathway Gothic One","Francois One","Acme","Space Grotesk","Outfit","Sora",
+        "Lexend","Lexend Deca","Plus Jakarta Sans","Albert Sans","Figtree",
+        "Instrument Sans","Red Hat Display","Red Hat Text","Urbanist","Jost",
+        "Commissioner","Encode Sans","Encode Sans Condensed","Chivo","Saira",
+        "Barlow Semi Condensed","Yantramanav","Noto Sans Display","Bricolage Grotesque",
+        "Gabarito","Tenor Sans","Jura","Advent Pro","Michroma","Oxanium","Electrolize",
+        "Chakra Petch","Share","Share Tech","Quantico","Aldrich","Economica",
+        "Secular One","Assistant","Alef","Miriam Libre","Anek Latin","Nanum Gothic",
+        "Gothic A1","Do Hyeon","Jua","Noto Sans Arabic"
+      ]),
+      'serif': new Set([
+        "Merriweather","Playfair Display","Roboto Slab","Libre Baskerville","Lora",
+        "Bitter","PT Serif","Crimson Text","Cinzel","Cinzel Decorative",
+        "Cormorant Garamond","EB Garamond","Spectral","Libre Caslon Text","Cardo",
+        "Old Standard TT","Lusitana","Mate","Noto Serif","Noto Serif Display",
+        "Alegreya","Alegreya SC","Vollkorn","Gentium Book Plus","Cormorant",
+        "Cormorant Infant","Cormorant SC","Cormorant Upright","IBM Plex Serif",
+        "Zilla Slab","Rokkitt","Arvo","Crete Round","Slabo 27px","Noticia Text",
+        "Domine","Martel","Tinos","Gelasio","Yeseva One","Philosopher","Neuton",
+        "Taviraj","Brawler","Eczar","Amiri","Amiri Quran","Markazi Text",
+        "Scheherazade New","Reem Kufi","Changa","El Messiri","Harmattan",
+        "Noto Naskh Arabic","Noto Kufi Arabic","Abril Fatface","Alfaslab One",
+        "Bree Serif","Patua One","Ultra","Stint Ultra Expanded","Bevan","Rozha One",
+        "Calistoga","Fraunces","Syne","Gloock","Young Serif","Arapey","Bellefair",
+        "Forum","Oranienbaum","Prata","Poiret One","Suez One","Nanum Myeongjo",
+        "Song Myung","Gasoek One","Grandiflora One"
+      ]),
+      'monospace': new Set([
+        "Inconsolata","Source Code Pro","Share Tech Mono","IBM Plex Mono","JetBrains Mono",
+        "Fira Code","DM Mono","Cousine","Anonymous Pro","Courier Prime","Cutive Mono",
+        "Major Mono Display","Syne Mono","Xanh Mono","B612 Mono","Space Mono",
+        "Noto Sans Mono","Nanum Gothic Coding","Recursive"
+      ]),
+      'display': new Set([
+        "Lobster","Pacifico","Righteous","Permanent Marker","Bangers","Bungee",
+        "Bungee Shade","Fascinate Inline","Monoton","Audiowide","Orbitron",
+        "Press Start 2P","VT323","Silkscreen","Pixelify Sans","Tiny5","DotGothic16",
+        "Fredoka","Baloo 2","Bubblegum Sans","Cherry Cream Soda","Chewy",
+        "Luckiest Guy","Boogaloo","Titan One","Lilita One","Shrikhand",
+        "Passion One","Fugaz One","Concert One","Bowlby One SC","Yanone Kaffeesatz",
+        "Exo","Lobster Two","Special Elite","Kablammo","Nabla","Rubik Vinyl",
+        "Rubik Glitch","Rubik Burned","Rubik Wet Paint","Rubik Moonrocks",
+        "Rubik Storm","Rubik Pixels","Rubik Iso","Rubik Distressed","Rubik Maze",
+        "Rubik Maps","Climate Crisis","Foldit","Tourney","Zen Dots","Zen Tokyo Zoo",
+        "Bungee Inline","Bungee Outline","Bungee Spice","Londrina Solid",
+        "Londrina Outline","Londrina Shadow","Londrina Sketch","Protest Riot",
+        "Protest Strike","Protest Revolution","Protest Guerrilla","Coda",
+        "Saira Stencil One","Black Ops One","Gugi","Iceland","Tilt Neon",
+        "Tilt Prism","Tilt Warp","Gamja Flower","Cute Font","Sunflower",
+        "Stylish","Poor Story","East Sea Dokdo","Yeon Sung","Hi Melody","Dokdo",
+        "Bagel Fat One"
+      ]),
+      'handwriting': new Set([
+        "Shadows Into Light","Dancing Script","Satisfy","Courgette","Great Vibes",
+        "Caveat","Kaushan Script","Sacramento","Yellowtail","Cookie","Tangerine",
+        "Parisienne","Gloria Hallelujah","Indie Flower","Patrick Hand",
+        "Architects Daughter","Handlee","Neucha","Covered By Your Grace",
+        "Just Another Hand","Rock Salt","Reenie Beanie","Schoolbell","Coming Soon",
+        "Walter Turncoat","Sriracha","Amatic SC","Fredericka the Great","Merienda",
+        "Kalam","Chilanka","Delius","Delius Swash Caps","Delius Unicase",
+        "Sue Ellen Francisco","Nanum Pen Script","Nanum Brush Script","Gaegu",
+        "Edu NSW ACT Foundation","Edu QLD Beginner","Edu SA Beginner",
+        "Edu TAS Beginner","Edu VIC WA NT Beginner"
+      ])
+    };
+
+    // Active filter and derived font list
+    let activeFilter = 'all';
+    let filteredFonts = FONTS;
+
+    function applyFontFilter(category) {
+      activeFilter = category;
+      if (category === 'all') {
+        filteredFonts = FONTS;
+      } else {
+        const catSet = FONT_CATEGORIES[category];
+        filteredFonts = FONTS.filter(f => catSet.has(f));
+      }
+      updateFontCount();
+      fullRerender();
+    }
+
     // ============================================================
     // CONFIGURATION
     // ============================================================
@@ -518,6 +639,7 @@
     const boldBtn = document.getElementById('bold-btn');
     const italicBtn = document.getElementById('italic-btn');
     const fontCountEl = document.getElementById('font-count');
+    const filterInput = document.getElementById('filter-input');
     const minimapViewport = document.getElementById('minimap-viewport');
     const minimapOrigin = document.getElementById('minimap-origin');
     const hint = document.getElementById('hint');
@@ -556,7 +678,10 @@
     }
 
     function updateFontCount() {
-      fontCountEl.textContent = `${fontsLoaded.size}/${FONTS.length} fonts`;
+      const loaded = activeFilter === 'all'
+        ? fontsLoaded.size
+        : filteredFonts.filter(f => fontsLoaded.has(f)).length;
+      fontCountEl.textContent = `${loaded}/${filteredFonts.length} fonts`;
     }
 
     // Load fonts progressively
@@ -593,8 +718,8 @@
     }
 
     function getFontForCell(col, row) {
-      const idx = hashCoord(col, row) % FONTS.length;
-      return FONTS[idx];
+      const idx = hashCoord(col, row) % filteredFonts.length;
+      return filteredFonts[idx];
     }
 
     // ============================================================
@@ -1008,6 +1133,10 @@
     sizeInput.addEventListener('input', () => {
       fontSize = parseInt(sizeInput.value);
       fullRerender();
+    });
+
+    filterInput.addEventListener('change', () => {
+      applyFontFilter(filterInput.value);
     });
 
     // Panel toggle
